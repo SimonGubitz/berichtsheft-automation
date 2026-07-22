@@ -1,0 +1,26 @@
+services:
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    volumes:
+      - ./ollama/ollama:/root/.ollama
+    ports:
+      - '11434:11434'
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: app
+    stdin_open: true
+    tty: true
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+    depends_on:
+      ollama:
+        condition: service_healthy
+
