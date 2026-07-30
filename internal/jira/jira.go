@@ -8,10 +8,15 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
+	"time"
 
 	"berichtsheft/internal/cache"
 	"berichtsheft/internal/networking"
+
+	"github.com/snabb/isoweek"
 )
 
 type JiraClient struct {
@@ -19,13 +24,18 @@ type JiraClient struct {
 	password   string
 	baseURL    string
 	httpClient *http.Client
-	myCache    cache.FileCache
+	reqCache   cache.FileCache
 	log        *slog.Logger
 }
 
 func NewJiraClient(baseURL string, username, password string) (*JiraClient, error) {
 
-	myCache, err := cache.NewFileCache("jira_cache")
+	jiraHost := normalizeUserURL(baseURL)
+	if err := validateURL(jiraHost); err != nil {
+		return nil, fmt.Errorf("invalid user email. %w", err)
+	}
+
+	reqCache, err := cache.NewFileCache("jira_cache", 336*time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file cache. %w", err)
 	}
@@ -34,26 +44,52 @@ func NewJiraClient(baseURL string, username, password string) (*JiraClient, erro
 		username:   username,
 		password:   password,
 		httpClient: http.DefaultClient,
-		myCache:    *myCache,
-		baseURL:    baseURL,
-		log:        slog.Default().With("layer", "GetActivities"),
+		reqCache:   *reqCache,
+		baseURL:    jiraHost,
+		log:        slog.Default().With("layer", "jira"),
 	}, nil
 }
 
+func normalizeUserURL(s string) string {
+	if !strings.HasPrefix(s, "https://") && !strings.HasPrefix(s, "http://") {
+		return "https://" + s
+	}
+	return s
+}
+
+func validateURL(s string) error {
+
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		return fmt.Errorf("invalid URL. %+v", err)
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("URL must start with http:// or https://")
+	}
+
+	if u.Host == "" {
+		return fmt.Errorf("missing host")
+	}
+
+	return nil
+}
+
 func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*ActivityFeed, error) {
+
+	header := make(http.Header)
 
 	queryParams := make(url.Values)
 	queryParams.Add("maxResults", strconv.Itoa(maxResults))
 	queryParams.Add("streams", "user IS "+j.username)
 
-	header := make(http.Header)
 	reqUrl, err := url.JoinPath(j.baseURL, "/activity")
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct request url. %w", err)
+		return nil, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
 	}
 
 	reqUrl += "?" + queryParams.Encode()
-	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, j.myCache, reqUrl, j.username, j.password)
+	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request activity feed. %w", err)
 	}
@@ -65,20 +101,106 @@ func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*Activi
 		return nil, fmt.Errorf("failed to unmarshal activity feed. %w", err)
 	}
 
-	slog.Debug("result", "object", res)
+	slog.Debug("fetched activities", "activities", res)
+
+	// TODO: remove
+	time.Sleep(800 * time.Millisecond)
 
 	return &res, nil
+}
+
+type WeekSummary struct {
+	IsoWeek   int
+	StartWeek time.Time
+	EndWeek   time.Time
+	Issues    []Issue
+}
+
+func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFeed) ([]WeekSummary, error) {
+
+	// key is athe iso week
+	weekSummaries := make(map[int]WeekSummary)
+
+	for _, entry := range activityFeed.Entries {
+
+		regex := regexp.MustCompile("^[a-zA-Z]+-[0-9]{1,3}")
+		issueKey := regex.FindString(entry.Activity.Title)
+		if issueKey == "" {
+			continue
+		}
+
+		issue, err := j.GetIssue(ctx, issueKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch issue. %w", err)
+		}
+
+		var weekSummary WeekSummary
+		y, w := issue.Fields.Updated.ISOWeek()
+		startWeek := isoweek.StartTime(y, w, time.Local)
+		endWeek := isoweek.StartTime(y, w, time.Local).Add(6 * 24 * time.Hour)
+		j.log.Debug("isoweek", "date", issue.Fields.Updated, "week", w, "start", startWeek, "end", endWeek)
+
+		if s, ok := weekSummaries[w]; ok {
+			weekSummary = s
+		} else {
+			weekSummary = WeekSummary{
+				IsoWeek:   w,
+				StartWeek: startWeek,
+				EndWeek:   endWeek,
+				Issues:    make([]Issue, 0),
+			}
+		}
+		weekSummary.Issues = append(weekSummary.Issues, *issue)
+
+		weekSummaries[w] = weekSummary
+	}
+
+	res := make([]WeekSummary, len(weekSummaries))
+	i := 0
+	for _, v := range weekSummaries {
+		res[i] = v
+		i++
+	}
+	return res, nil
+}
+
+func (j *JiraClient) SearchIssues(ctx context.Context, jql string) ([]Issue, error) {
+
+	header := make(http.Header)
+
+	queryParams := make(url.Values)
+	queryParams.Add("", "")
+
+	reqUrl, err := url.JoinPath(j.baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
+	}
+
+	reqUrl += "?" + queryParams.Encode()
+	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to request search. %w", err)
+	}
+
+	var resp any
+	decoder := json.NewDecoder(r)
+	err = decoder.Decode(&resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response. %w", err)
+	}
+
+	return nil, nil
 }
 
 func (j *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
 
 	header := make(http.Header)
-	reqUrl, err := url.JoinPath(j.baseURL, "/rest/api/2/issue/%s", key)
+	reqUrl, err := url.JoinPath(j.baseURL, fmt.Sprintf("/rest/api/2/issue/%s", key))
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct request url. %w", err)
+		return nil, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
 	}
 
-	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, j.myCache, reqUrl, j.username, j.password)
+	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do request to jira issue endpoint. %w", err)
 	}

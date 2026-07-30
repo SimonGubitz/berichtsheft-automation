@@ -8,7 +8,7 @@ import (
 
 	"berichtsheft/internal/config"
 	"berichtsheft/internal/logging"
-	"berichtsheft/internal/ui"
+	"berichtsheft/internal/ui/tui"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	closer, err := logging.SetupDefault(logging.Dev)
+	closer, err := logging.SetupDefault(logging.FileOnly)
 	if err != nil {
 		fmt.Println(ConsoleRed(err.Error()))
 		return
@@ -25,13 +25,15 @@ func main() {
 
 	ctx := context.Background()
 
-	conf, err := config.GetConfig()
+	var confClient config.FileConfig
+	conf, err := confClient.GetConfig()
 	if err != nil && !errors.Is(err, config.ErrNoConfigFile) {
 		fmt.Println(ConsoleRed("Error starting program: " + err.Error()))
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(ui.NewApplication(ui.NewRoute("homepage", ui.NewHomePage(conf))), tea.WithContext(ctx))
+	m := tui.NewApplication(ctx, conf)
+	p := tea.NewProgram(m, tea.WithContext(ctx))
 	if _, err := p.Run(); err != nil {
 		fmt.Println(ConsoleRed("Error running program: " + err.Error()))
 		os.Exit(1)
@@ -41,4 +43,15 @@ func main() {
 func ConsoleRed(str string) string {
 	style := lipgloss.NewStyle().Foreground(lipgloss.Red)
 	return style.Render(str)
+}
+
+func getenv(key string) string {
+
+	res := os.Getenv(key)
+	if res == "" {
+		ConsoleRed(fmt.Sprintf("environment variable `%s` not set.", key))
+		os.Exit(1)
+	}
+
+	return res
 }
