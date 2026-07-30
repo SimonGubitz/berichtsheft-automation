@@ -43,13 +43,29 @@ type Issue struct {
 }
 
 type IssueFields struct {
-	Summary     string          `json:"summary"`
-	Description string          `json:"description"`
-	Status      JiraStatus      `json:"status"`
-	Assignee    JiraUser        `json:"assignee"`
-	Creator     JiraUser        `json:"creator"`
-	Reporter    JiraUser        `json:"reporter"`
-	Comment     JiraCommentMeta `json:"comment"`
+	Summary         string             `json:"summary"`
+	Description     string             `json:"description"`
+	Status          JiraStatus         `json:"status"`
+	Assignee        User               `json:"assignee"`
+	Creator         User               `json:"creator"`
+	Reporter        User               `json:"reporter"`
+	Comment         JiraCommentMeta    `json:"comment"`
+	CodereviewLinks JiraCodereviewLink `json:"customfield_11202"`
+	Updated         JiraTime           `json:"updated"`
+	DueDate         JiraTime           `json:"duedate"`
+}
+
+type JiraCodereviewLink []string
+
+func (jc JiraCodereviewLink) UnmarshalJSON(data []byte) error {
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("failed to . %w", err)
+	}
+
+	jc = strings.Split(s, "\r\n")
+	return nil
 }
 
 type JiraCommentMeta struct {
@@ -62,8 +78,8 @@ type JiraCommentMeta struct {
 type JiraComment struct {
 	Self         string   `json:"self"`
 	ID           string   `json:"id"`
-	Author       JiraUser `json:"author"`
-	UpdateAuthor JiraUser `json:"updateAuthor"`
+	Author       User     `json:"author"`
+	UpdateAuthor User     `json:"updateAuthor"`
 	Body         string   `json:"body"`
 	Created      JiraTime `json:"created"`
 	Updated      JiraTime `json:"updated"`
@@ -75,16 +91,9 @@ type JiraStatus struct {
 	IconURL     string `json:"iconUrl"`
 	Name        string `json:"name"`
 	ID          string `json:"id"`
-	// "statusCategory": {
-	// 		"self": "https://jira.example.com/rest/api/2/statuscategory/2",
-	// 		"id": 2,
-	// 		"key": "new",
-	// 		"colorName": "blue-gray",
-	// 		"name": "Aufgaben"
-	// }
 }
 
-type JiraUser struct {
+type User struct {
 	Self         string `json:"self"`
 	Name         string `json:"name"`
 	Key          string `json:"key"`

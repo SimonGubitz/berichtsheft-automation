@@ -1,7 +1,6 @@
 package networking
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -18,30 +17,7 @@ func DefaultHTTPClient() *http.Client {
 	}
 }
 
-func HTTPRequest(ctx context.Context, httpClient *http.Client, header http.Header, url string) (io.Reader, error) {
-
-	l := slog.Default().With("layer", "networking")
-
-	rc, err := doRequest(ctx, l, httpClient, header, url)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := rc.Close(); err != nil {
-			l.Error("failed to close body.", "Error", err)
-		}
-	}()
-
-	b, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, err
-	}
-	l.Debug("returning")
-
-	return bytes.NewReader(b), nil
-}
-
-func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, apiCache cache.FileCache, url string, username, password string) (io.Reader, error) {
+func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, body io.Reader, apiCache cache.FileCache, url string, username, password string) (io.Reader, error) {
 
 	l := slog.Default().With("layer", "networking")
 
@@ -66,7 +42,7 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 
 		l.Debug("cache miss", "url", url)
 
-		rc, err := doRequestWithBasicAuth(ctx, l, httpClient, header, url, username, password)
+		rc, err := doRequestWithBasicAuth(ctx, l, httpClient, header, body, url, username, password)
 		if err != nil {
 			return nil, fmt.Errorf("HTTPRequestWithCache: Error with request: %w", err)
 		}
@@ -120,9 +96,9 @@ func doRequest(ctx context.Context, l *slog.Logger, httpClient *http.Client, hea
 	return resp.Body, nil
 }
 
-func doRequestWithBasicAuth(ctx context.Context, l *slog.Logger, httpClient *http.Client, header http.Header, url, username, password string) (io.ReadCloser, error) {
+func doRequestWithBasicAuth(ctx context.Context, l *slog.Logger, httpClient *http.Client, header http.Header, body io.Reader, url, username, password string) (io.ReadCloser, error) {
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, body)
 	if err != nil {
 		l.Warn("failed to create request", "url", url)
 		return nil, fmt.Errorf("failed to create request: %w", err)

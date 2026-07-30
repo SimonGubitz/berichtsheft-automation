@@ -24,7 +24,7 @@ func TestFileCache(t *testing.T) {
 
 	cacheTestID := "cache_test_id"
 
-	fileCache, err := cache.NewFileCache(cacheTestID)
+	fileCache, err := cache.NewFileCache(cacheTestID, 2*time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create file cache. %v", err)
 	}
@@ -110,7 +110,7 @@ func TestFileMetadata(t *testing.T) {
 		t.Fatalf("failed to encode into metadata file. %v", err)
 	}
 
-	fileCache, err := cache.NewFileCache(testCacheID)
+	fileCache, err := cache.NewFileCache(testCacheID, 2*time.Hour)
 	if err != nil {
 		t.Fatalf("failed to create file cache. %v", err)
 	}

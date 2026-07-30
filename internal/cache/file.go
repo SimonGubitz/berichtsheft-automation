@@ -31,7 +31,7 @@ type FileCache struct {
 	log        *slog.Logger
 }
 
-func NewFileCache(cacheID string) (*FileCache, error) {
+func NewFileCache(cacheID string, cacheTTL time.Duration) (*FileCache, error) {
 
 	l := slog.Default().With("layer", "file-cache")
 
@@ -86,6 +86,7 @@ func NewFileCache(cacheID string) (*FileCache, error) {
 		meta:       metadata,
 		baseFolder: baseFolder,
 		log:        l,
+		ttl:        cacheTTL,
 	}, nil
 }
 

@@ -1,4 +1,4 @@
-package ui
+package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
@@ -27,7 +27,7 @@ func (e ErrorPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return nil, nil
+	return e, nil
 }
 
 func (e ErrorPage) View() tea.View {

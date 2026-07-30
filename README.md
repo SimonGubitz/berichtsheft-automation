@@ -37,7 +37,6 @@ or
 ```bash
 JIRA_URL=<username> \
 JIRA_USERNAME=<username> \
-JIRA_PASSWORD=<password> \
 make run cli
 ```
 
