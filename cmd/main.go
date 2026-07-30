@@ -30,11 +30,12 @@ func main() {
 
 	ctx := context.Background()
 
-	if *headless {
+	switch {
+	case *headless:
 		runHeadless(ctx, *output)
-	} else if *noConfig {
+	case *noConfig:
 		runNoConfig(ctx)
-	} else {
+	default:
 		runTUI(ctx)
 	}
 
@@ -43,17 +44,6 @@ func main() {
 func ConsoleRed(str string) string {
 	style := lipgloss.NewStyle().Foreground(lipgloss.Red)
 	return style.Render(str)
-}
-
-func getenv(key string) string {
-
-	res := os.Getenv(key)
-	if res == "" {
-		fmt.Println(ConsoleRed(fmt.Sprintf("environment variable `%s` not set.", key)))
-		os.Exit(1)
-	}
-
-	return res
 }
 
 func runNoConfig(ctx context.Context) {
@@ -105,11 +95,11 @@ func runHeadless(ctx context.Context, output string) {
 	}
 
 	if output == "-" {
-		fmt.Fprintln(os.Stdout, report)
+		_, _ = fmt.Fprintln(os.Stdout, report)
 		return
 	}
 
-	if err := os.WriteFile(output, []byte(report+"\n"), 0600); err != nil {
+	if err := os.WriteFile(output, []byte(report+"\n"), 0o600); err != nil {
 		fmt.Println(ConsoleRed(fmt.Sprintf("failed to write report to %s. %+v", output, err)))
 	}
 }

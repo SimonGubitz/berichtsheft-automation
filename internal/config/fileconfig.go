@@ -17,14 +17,14 @@ func (fc *FileConfig) GetConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to get config file path. %w", err)
 	}
 
-	f, err := os.OpenFile(configFilePath, os.O_RDONLY, 0600)
+	f, err := os.OpenFile(configFilePath, os.O_RDONLY, 0o600)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNoConfigFile
 		}
 		return nil, fmt.Errorf("failed to open config file at %s. %w", configFilePath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	decoder := json.NewDecoder(f)
 	var config Config
@@ -42,11 +42,11 @@ func (fc *FileConfig) SetConfig(config Config) error {
 		return fmt.Errorf("failed to get config file path. %w", err)
 	}
 
-	f, err := os.OpenFile(configFilePath, os.O_CREATE|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(configFilePath, os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open config file at %s. %w", configFilePath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	encoder := json.NewEncoder(f)
 	err = encoder.Encode(config)

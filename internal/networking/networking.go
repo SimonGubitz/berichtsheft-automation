@@ -2,6 +2,7 @@ package networking
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,12 +18,12 @@ func DefaultHTTPClient() *http.Client {
 	}
 }
 
-func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, body io.Reader, apiCache cache.FileCache, url string, username, password string) (io.Reader, error) {
+func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, body io.Reader, apiCache *cache.FileCache, url, username, password string) (io.Reader, error) {
 
 	l := slog.Default().With("layer", "networking")
 
 	valid, err := apiCache.IsValid(url)
-	if err != nil && err != cache.ErrCacheLevelNone {
+	if err != nil && errors.Is(err, cache.ErrCacheLevelNone) {
 		return nil, fmt.Errorf("invalid cache: %w", err)
 	}
 
@@ -62,38 +63,6 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 
 		return r, nil
 	}
-}
-
-func doRequest(ctx context.Context, l *slog.Logger, httpClient *http.Client, header http.Header, url string) (io.ReadCloser, error) {
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		l.Warn("failed to create request", "url", url)
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header = header
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		l.Warn("error while making request", "url", url)
-		return nil, fmt.Errorf("failed to execute request: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				slog.Error("failed to close respose body", "Error", err)
-			}
-		}()
-
-		l.Warn("unexpected status code", "status code", resp.StatusCode, "url", url)
-
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	l.Debug("successful request")
-
-	return resp.Body, nil
 }
 
 func doRequestWithBasicAuth(ctx context.Context, l *slog.Logger, httpClient *http.Client, header http.Header, body io.Reader, url, username, password string) (io.ReadCloser, error) {
