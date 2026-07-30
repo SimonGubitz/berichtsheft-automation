@@ -130,7 +130,7 @@ func (f *FileCache) getFileForWrite(key string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 }
 
 func (f *FileCache) getFileForRead(key string) (*os.File, error) {
@@ -142,7 +142,7 @@ func (f *FileCache) getFileForRead(key string) (*os.File, error) {
 }
 
 func (f *FileCache) writeMetadataToFile() error {
-	file, err := os.OpenFile(f.getMetadataFilePath(), os.O_WRONLY, 0644)
+	file, err := os.OpenFile(f.getMetadataFilePath(), os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to open metadata file. %w", err)
 	}

@@ -4,17 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"berichtsheft/internal/logging"
 	"berichtsheft/internal/ollama"
 )
 
 func TestGetResponse(t *testing.T) {
-
-	closer, err := logging.SetupDefault(logging.Test)
-	if err != nil {
-		t.Fatalf("failed to setup logging. %+v", err)
-	}
-	defer closer.Close()
 
 	ctx := context.Background()
 

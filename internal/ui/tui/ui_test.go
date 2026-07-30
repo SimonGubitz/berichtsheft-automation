@@ -17,7 +17,7 @@ func NewMockServer() *httptest.Server {
 	server.HandleFunc("/rest/api/2/issue/{key}", func(w http.ResponseWriter, req *http.Request) {
 		key := req.PathValue("key")
 
-		json.NewEncoder(w).Encode(jira.Issue{
+		_ = json.NewEncoder(w).Encode(jira.Issue{
 			ID:  "uuid",
 			Key: key,
 			Fields: jira.IssueFields{
@@ -53,7 +53,7 @@ func ValidateURL(s string) error {
 
 	u, err := url.ParseRequestURI(s)
 	if err != nil {
-		return fmt.Errorf("invalid URL. %+v", err)
+		return fmt.Errorf("invalid URL. %w", err)
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {

@@ -57,14 +57,14 @@ type IssueFields struct {
 
 type JiraCodereviewLink []string
 
-func (jc JiraCodereviewLink) UnmarshalJSON(data []byte) error {
+func (jc *JiraCodereviewLink) UnmarshalJSON(data []byte) error {
 
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return fmt.Errorf("failed to . %w", err)
 	}
 
-	jc = strings.Split(s, "\r\n")
+	*jc = strings.Split(s, "\r\n")
 	return nil
 }
 
@@ -135,7 +135,7 @@ func (jt *JiraTime) UnmarshalJSON(data []byte) error {
 
 func (jt JiraTime) MarshalJSON() ([]byte, error) {
 
-	if jt.Time.IsZero() {
+	if jt.IsZero() {
 		return []byte("null"), nil
 	}
 	return json.Marshal(jt.Format(jiraTimeLayout))

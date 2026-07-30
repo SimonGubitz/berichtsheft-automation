@@ -122,7 +122,7 @@ func (o Ollama) GetResponse(ctx context.Context, input string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to do request to url %s. %w", o.url+"/generate", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var genResp GenerateResp
 	decoder := json.NewDecoder(resp.Body)
@@ -161,7 +161,7 @@ func (o Ollama) PullModel(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to do request to pull model. %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var pullResp PullResp
 	decoder := json.NewDecoder(resp.Body)
@@ -175,7 +175,7 @@ func (o Ollama) PullModel(ctx context.Context) error {
 
 func (o Ollama) ListModels(ctx context.Context) ([]Model, error) {
 
-	req, err := http.NewRequestWithContext(ctx, "GET", o.url+"/tags", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", o.url+"/tags", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct request. %w", err)
 	}
@@ -185,7 +185,7 @@ func (o Ollama) ListModels(ctx context.Context) ([]Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to do request to url %s. %w", o.url+"/tags", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var tagResp TagResp
 	decoder := json.NewDecoder(resp.Body)

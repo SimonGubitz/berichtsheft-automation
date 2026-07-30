@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"berichtsheft/internal/config"
-	"berichtsheft/internal/logging"
 	"berichtsheft/internal/ui/tui"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,13 +14,6 @@ import (
 )
 
 func main() {
-
-	closer, err := logging.SetupDefault(logging.FileOnly)
-	if err != nil {
-		fmt.Println(ConsoleRed(err.Error()))
-		return
-	}
-	defer closer.Close()
 
 	ctx := context.Background()
 
@@ -43,15 +35,4 @@ func main() {
 func ConsoleRed(str string) string {
 	style := lipgloss.NewStyle().Foreground(lipgloss.Red)
 	return style.Render(str)
-}
-
-func getenv(key string) string {
-
-	res := os.Getenv(key)
-	if res == "" {
-		ConsoleRed(fmt.Sprintf("environment variable `%s` not set.", key))
-		os.Exit(1)
-	}
-
-	return res
 }

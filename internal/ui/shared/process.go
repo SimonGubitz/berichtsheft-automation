@@ -14,12 +14,9 @@ import (
 )
 
 var (
-	titleStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	bodyStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	textStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("201"))
 	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
 	responseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#b8b8b8"))
-	errorStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 )
 
 type HashSet map[string]struct{}
@@ -43,7 +40,7 @@ func NewProcessModel(ctx context.Context, conf *config.Config, password string) 
 
 	ollamaHost := os.Getenv("OLLAMA_HOST")
 	if ollamaHost == "" {
-		return model{}, errors.New("environment variable `OLLAMA_HOST` not set.")
+		return model{}, errors.New("environment variable `OLLAMA_HOST` not set")
 	}
 
 	s := spinner.New()

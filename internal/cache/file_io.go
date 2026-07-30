@@ -18,7 +18,7 @@ func FileExists(path string) bool {
 }
 
 func CreateDir(path string) error {
-	return os.MkdirAll(path, 0755)
+	return os.MkdirAll(path, 0o700)
 }
 
 func RemoveContents(dir string) error {

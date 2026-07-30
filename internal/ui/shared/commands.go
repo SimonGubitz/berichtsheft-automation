@@ -49,19 +49,19 @@ type LLMWeek struct {
 }
 
 func getJiraInput(ctx context.Context, jiraUrl, username, password string) (string, error) {
-	jira, err := jira.NewJiraClient(jiraUrl, username, password)
+	j, err := jira.NewJiraClient(jiraUrl, username, password)
 	if err != nil {
-		return "", fmt.Errorf("failed to instantiate new jira client. %+v\n", err)
+		return "", fmt.Errorf("failed to instantiate new jira client. %w", err)
 	}
 
-	activities, err := jira.GetActivities(ctx, 150)
+	activities, err := j.GetActivities(ctx, 150)
 	if err != nil {
-		return "", fmt.Errorf("failed to get activities. %+v\n", err)
+		return "", fmt.Errorf("failed to get activities. %w", err)
 	}
 
-	weeks, err := jira.ConstructWeeks(ctx, *activities)
+	weeks, err := j.ConstructWeeks(ctx, *activities)
 	if err != nil {
-		return "", fmt.Errorf("failed to construct weeks. %+v\n", err)
+		return "", fmt.Errorf("failed to construct weeks. %w", err)
 	}
 
 	llmWeeks := make([]LLMWeek, 0, len(weeks))
@@ -98,7 +98,7 @@ func getJiraInput(ctx context.Context, jiraUrl, username, password string) (stri
 
 	inputBytes, err := json.MarshalIndent(llmWeeks, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal model data. %+v", err)
+		return "", fmt.Errorf("failed to marshal model data. %w", err)
 	}
 	return string(inputBytes), nil
 }
@@ -118,19 +118,19 @@ func getLLMSummary(ctx context.Context, ollama_host, input string) (string, erro
 	o := ollama.NewOllamaClient(ollama_host)
 	hasModel, err := o.HasModel(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to list active models. %+v\n", err)
+		return "", fmt.Errorf("failed to list active models. %w", err)
 	}
 
 	if !hasModel {
 		err := o.PullModel(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to pull model. %+v\n", err)
+			return "", fmt.Errorf("failed to pull model. %w", err)
 		}
 	}
 
 	resp, err := o.GetResponse(ctx, input)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate response. %+v\n", err)
+		return "", fmt.Errorf("failed to generate response. %w", err)
 	}
 
 	return resp, nil
