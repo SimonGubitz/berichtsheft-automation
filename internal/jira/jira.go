@@ -24,11 +24,11 @@ type JiraClient struct {
 	password   string
 	baseURL    string
 	httpClient *http.Client
-	reqCache   cache.FileCache
+	reqCache   *cache.FileCache
 	log        *slog.Logger
 }
 
-func NewJiraClient(baseURL string, username, password string) (*JiraClient, error) {
+func NewJiraClient(baseURL, username, password string) (*JiraClient, error) {
 
 	jiraHost := normalizeUserURL(baseURL)
 	if err := validateURL(jiraHost); err != nil {
@@ -44,7 +44,7 @@ func NewJiraClient(baseURL string, username, password string) (*JiraClient, erro
 		username:   username,
 		password:   password,
 		httpClient: http.DefaultClient,
-		reqCache:   *reqCache,
+		reqCache:   reqCache,
 		baseURL:    jiraHost,
 		log:        slog.Default().With("layer", "jira"),
 	}, nil
@@ -61,7 +61,7 @@ func validateURL(s string) error {
 
 	u, err := url.ParseRequestURI(s)
 	if err != nil {
-		return fmt.Errorf("invalid URL. %+v", err)
+		return fmt.Errorf("invalid URL. %w", err)
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
@@ -103,9 +103,6 @@ func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*Activi
 
 	slog.Debug("fetched activities", "activities", res)
 
-	// TODO: remove
-	time.Sleep(800 * time.Millisecond)
-
 	return &res, nil
 }
 
@@ -123,7 +120,7 @@ func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFe
 
 	for _, entry := range activityFeed.Entries {
 
-		regex := regexp.MustCompile("^[a-zA-Z]+-[0-9]{1,3}")
+		regex := regexp.MustCompile(`^[a-zA-Z]+-\d{1,3}`)
 		issueKey := regex.FindString(entry.Activity.Title)
 		if issueKey == "" {
 			continue

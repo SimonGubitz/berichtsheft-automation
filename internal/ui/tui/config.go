@@ -17,8 +17,6 @@ import (
 var (
 	focusedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	blurredStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	cursorStyle         = focusedStyle
-	noStyle             = lipgloss.NewStyle()
 	helpStyle           = blurredStyle
 	cursorModeHelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
@@ -99,9 +97,8 @@ func (c ConfigPage) Init() tea.Cmd {
 }
 
 func (c ConfigPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch keypress := msg.String(); keypress {
+	if keypress, ok := msg.(tea.KeyPressMsg); ok {
+		switch keypress.String() {
 		case "ctrl+c", "q":
 			return c, tea.Quit
 
@@ -121,7 +118,7 @@ func (c ConfigPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Set focus to next input
 		case "tab", "shift+tab", "enter", "up", "down":
-			s := msg.String()
+			s := keypress.String()
 
 			// Did the user press enter while the submit button was focused?
 			// If so, exit.
