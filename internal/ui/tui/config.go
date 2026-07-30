@@ -1,6 +1,7 @@
-package ui
+package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -32,18 +33,30 @@ const (
 )
 
 type ConfigPage struct {
+	ctx context.Context
+
 	conf       *config.Config
+	confClient config.ConfigClient
+
 	focusIndex int
 	inputs     []textinput.Model
 	cursorMode cursor.Mode
 	quitting   bool
 }
 
-func NewConfigPage(conf *config.Config) ConfigPage {
+func NewConfigPage(ctx context.Context, conf *config.Config) ConfigPage {
+	// The TUI opens this page on first run, before a config file exists.
+	if conf == nil {
+		conf = &config.Config{}
+	}
+
+	var confClient config.FileConfig
 
 	c := ConfigPage{
-		conf:   conf,
-		inputs: make([]textinput.Model, 3),
+		ctx:        ctx,
+		conf:       conf,
+		confClient: &confClient,
+		inputs:     make([]textinput.Model, 3),
 	}
 
 	var t textinput.Model
@@ -63,10 +76,12 @@ func NewConfigPage(conf *config.Config) ConfigPage {
 		switch i {
 		case urlIndex:
 			t.Placeholder = "Jira URL"
+			t.SetValue(conf.JiraHost)
 			t.Focus()
 		case usernameIndex:
 			t.Placeholder = "Username"
 			t.CharLimit = 64
+			t.SetValue(conf.Username)
 		case passwordIndex:
 			t.Placeholder = "Password"
 			t.EchoMode = textinput.EchoPassword
@@ -114,16 +129,16 @@ func (c ConfigPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				password := c.inputs[passwordIndex].Value()
 
 				c.conf.Username = c.inputs[usernameIndex].Value()
-				c.conf.JiraUrl = c.inputs[urlIndex].Value()
-				if err := config.SetConfig(*c.conf); err != nil {
-					return NewErrorPage(err), nil
+				c.conf.JiraHost = c.inputs[urlIndex].Value()
+				if err := c.confClient.SetConfig(*c.conf); err != nil {
+					return c, ThrowError(err)
 				}
 
 				if err := keychain.SetPassword(c.conf.Username, password); err != nil {
-					return NewErrorPage(err), nil
+					return c, ThrowError(err)
 				}
 
-				return NewHomePage(c.conf), nil
+				return c, NavigateTo(HomeRoute)
 			}
 
 			// Cycle indexes

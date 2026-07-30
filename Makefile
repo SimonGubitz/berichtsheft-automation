@@ -1,12 +1,24 @@
-TARGET := $(word 2, $(MAKECMDGOALS))
-SRC := cmd/$(TARGET)/main.go
+SRC := ./cmd/$(PROJECT)/main.go
+
+define HELP_BODY
+berichtsheft
+endef
+export HELP_BODY
+
+help:
+	@echo "$$HELP_BODY"
+
 
 run:
-	export $$(cat .env.local | xargs) && go run $(SRC)
+	set -a; . ./.env.local; set +a; time go run $(SRC)
 
 build:
-	go build -o ./bin/main-$(TARGET) $(SRC)
+	mkdir -p bin
+	go build -o ./bin/main-$(PROJECT) $(SRC)
 
+debug:
+	mkdir -p bin
+	set -a; . ./.env.local; set +a; dlv debug $(SRC) --output ./bin/$(PROJECT)
 
 check-format:
 	test -z "$$(gofmt -l .)"

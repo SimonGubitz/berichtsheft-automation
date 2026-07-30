@@ -1,6 +1,7 @@
-package ui
+package tui
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -64,14 +65,16 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type HomePage struct {
-	conf     *config.Config
+	ctx  context.Context
+	conf *config.Config
+
 	list     list.Model
 	choice   string
 	styles   styles
 	quitting bool
 }
 
-func NewHomePage(conf *config.Config) HomePage {
+func NewHomePage(ctx context.Context, conf *config.Config) HomePage {
 	items := []list.Item{
 		item("Start"),
 		item("Edit configuration"),
@@ -89,7 +92,11 @@ func NewHomePage(conf *config.Config) HomePage {
 		l.Title = "Hello " + conf.Username
 	}
 
-	m := HomePage{list: l, conf: conf}
+	m := HomePage{
+		ctx:  ctx,
+		conf: conf,
+		list: l,
+	}
 	m.updateStyles(true) // default to dark styles.
 	return m
 }
@@ -119,14 +126,13 @@ func (m HomePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "enter":
-			// TODO: send a message upwards here
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
 				switch string(i) {
 				case "Start":
-					return NewStartPage(m.conf), nil
+					return m, NavigateTo(ProcessRoute)
 				case "Edit configuration":
-					return NewConfigPage(m.conf), nil
+					return m, NavigateTo(ConfigRoute)
 				default:
 					return m, nil
 				}
