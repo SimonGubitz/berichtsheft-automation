@@ -14,5 +14,5 @@ type Config struct {
 
 type ConfigClient interface {
 	GetConfig() (*Config, error)
-	SetConfig(config Config) error
+	SetConfig(conf Config) error
 }

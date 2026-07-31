@@ -11,6 +11,10 @@ import (
 
 type FileConfig struct{}
 
+func NewFileConfig() *FileConfig {
+	return &FileConfig{}
+}
+
 func (fc *FileConfig) GetConfig() (*Config, error) {
 	configFilePath, err := xdg.ConfigFile("berichtsheft/config.json")
 	if err != nil {

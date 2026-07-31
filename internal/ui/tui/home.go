@@ -85,7 +85,7 @@ func NewHomePage(ctx context.Context, conf *config.Config) HomePage {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 
-	if conf == nil {
+	if conf.Username == "" {
 		l.Title = "Lets do something"
 	} else {
 		l.Title = "Hello " + conf.Username

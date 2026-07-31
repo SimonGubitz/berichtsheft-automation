@@ -18,27 +18,40 @@ Automatically generate weekly apprenticeship reports ("Berichtsheft") from your 
 - A Jira account
 - An Ollama installation or the provided Docker setup
 
-## Running
-
-### Docker
+## Docker with TUI
 
 ```bash
 docker compose up
 ```
 
-### Local
+### Locally
 
+#### Running
+
+Running this locally is possible in 3 different modes.
+
+1. TUI
+![TUI Mode](./assets/tui-screenshot.png)
+
+2. No Config
+![No Config Mode](./assets/no-config-screenshot.png)
+
+3. Headless with a config file
 ```bash
-make run tui
+OLLAMA_HOST="http://localhost:11434" ./berichtsheft --headless --file-config -o report.txt
 ```
 
-or
-
+4. Headless with a environment variables
 ```bash
-JIRA_URL=<username> \
-JIRA_USERNAME=<username> \
-make run cli
+JIRA_URL="jira.my_company.com" JIRA_USERNAME="my_username" OLLAMA_HOST="http://localhost:11434" ./berichtsheft --headless --env-config -o report.txt
 ```
+
+5. Headless with config flags
+```bash
+OLLAMA_HOST="http://localhost:11434" ./berichtsheft --headless --config-username="my_username" --config-jira-url="jira.my_company.com" -o report.txt
+```
+
+The password is always saved in the native OS-Keychain. [More info](https://github.com/zalando/go-keyring)
 
 ## Purpose
 
@@ -51,8 +64,5 @@ This project collects your recent Jira activity, retrieves the relevant issues, 
 - [x] Jira integration
 - [x] Local caching
 - [x] Ollama integration
-- [ ] Terminal UI
-- [ ] Docker Compose support
-- [ ] PDF export
-- [ ] Editing generated reports
-- [ ] Support additional issue trackers
+- [x] Terminal UI
+- [ ] Fully Dockerized
