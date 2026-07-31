@@ -120,9 +120,9 @@ func constructJiraWeeks(ctx context.Context, j *jira.JiraClient, activities *jir
 	return string(inputBytes), cached, nil
 }
 
-func GetLLMSummaryCmd(ctx context.Context, ollama_host, input string) tea.Cmd {
+func GetLLMSummaryCmd(ctx context.Context, ollamaHost, input string) tea.Cmd {
 	return func() tea.Msg {
-		resp, err := getLLMSummary(ctx, ollama_host, input)
+		resp, err := getLLMSummary(ctx, ollamaHost, input)
 		if err != nil {
 			return ErrMsg(err)
 		}
@@ -131,8 +131,8 @@ func GetLLMSummaryCmd(ctx context.Context, ollama_host, input string) tea.Cmd {
 	}
 }
 
-func getLLMSummary(ctx context.Context, ollama_host, input string) (string, error) {
-	o := ollama.NewOllamaClient(ollama_host)
+func getLLMSummary(ctx context.Context, ollamaHost, input string) (string, error) {
+	o := ollama.NewOllamaClient(ollamaHost)
 	hasModel, err := o.HasModel(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to list active models. %w", err)

@@ -79,11 +79,6 @@ func TestOllamaUnit(t *testing.T) {
 	server := NewOllamaMockServer()
 	o := ollama.NewOllamaClient(server.URL)
 
-	_, err := o.HasModel(ctx)
-	if err != nil {
-		t.Fatalf("failed to check for existing model. %+v", err)
-	}
-
 	hasModel, err := o.HasModel(ctx)
 	if err != nil {
 		t.Fatalf("failed to list active models. %+v", err)
