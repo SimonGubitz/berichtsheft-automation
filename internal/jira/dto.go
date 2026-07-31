@@ -118,7 +118,7 @@ func (jt *JiraTime) UnmarshalJSON(data []byte) error {
 	}
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal data %s into string. %w", string(data), err)
 	}
 	if strings.TrimSpace(s) == "" {
 		jt.Time = time.Time{}

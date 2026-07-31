@@ -28,13 +28,13 @@ docker compose up
 
 #### Running
 
-Running this locally is possible in 3 different modes.
+Running this locally is possible in 5 different modes.
 
 1. TUI
 ![TUI Mode](./assets/tui-screenshot.png)
 
-2. No Config
-![No Config Mode](./assets/no-config-screenshot.png)
+2. CLI
+![CLI Mode](./assets/cli-screenshot.png)
 
 3. Headless with a config file
 ```bash

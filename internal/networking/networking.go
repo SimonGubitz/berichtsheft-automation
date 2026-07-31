@@ -18,13 +18,13 @@ func DefaultHTTPClient() *http.Client {
 	}
 }
 
-func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, body io.Reader, apiCache *cache.FileCache, url, username, password string) (io.Reader, error) {
+func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, body io.Reader, apiCache *cache.FileCache, url, username, password string) (io.Reader, bool, error) {
 
 	l := slog.Default().With("layer", "networking")
 
 	valid, err := apiCache.IsValid(url)
 	if err != nil && errors.Is(err, cache.ErrCacheLevelNone) {
-		return nil, fmt.Errorf("invalid cache: %w", err)
+		return nil, false, fmt.Errorf("invalid cache: %w", err)
 	}
 
 	if valid {
@@ -35,9 +35,9 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 		// r, err = readCacheL3(fileName)
 		r, err := apiCache.GetReader(url)
 		if err != nil {
-			return nil, fmt.Errorf("HTTPRequestWithCache: Error reading from cache: %w", err)
+			return nil, false, fmt.Errorf("HTTPRequestWithCache: Error reading from cache: %w", err)
 		}
-		return r, nil
+		return r, true, nil
 
 	} else {
 
@@ -45,7 +45,7 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 
 		rc, err := doRequestWithBasicAuth(ctx, l, httpClient, header, body, url, username, password)
 		if err != nil {
-			return nil, fmt.Errorf("HTTPRequestWithCache: Error with request: %w", err)
+			return nil, false, fmt.Errorf("HTTPRequestWithCache: Error with request: %w", err)
 		}
 		defer func() {
 			if err := rc.Close(); err != nil {
@@ -58,10 +58,10 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 		r, err := apiCache.SetReader(url, rc)
 		if err != nil {
 			l.Warn("failed ot set cache", "url", url)
-			return nil, fmt.Errorf("failed to set cache with reader: %w", err)
+			return nil, false, fmt.Errorf("failed to set cache with reader: %w", err)
 		}
 
-		return r, nil
+		return r, false, nil
 	}
 }
 
