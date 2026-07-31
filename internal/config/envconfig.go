@@ -7,6 +7,10 @@ import (
 
 type EnvConfig struct{}
 
+func NewEnvConfig() *EnvConfig {
+	return &EnvConfig{}
+}
+
 func (ec *EnvConfig) GetConfig() (*Config, error) {
 
 	username := os.Getenv("JIRA_USERNAME")

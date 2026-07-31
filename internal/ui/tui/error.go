@@ -1,7 +1,14 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
+
+var (
+	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#EB4268"))
 )
 
 type ErrorPage struct {
@@ -19,16 +26,10 @@ func (e ErrorPage) Init() tea.Cmd {
 }
 
 func (e ErrorPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keypress, ok := msg.(tea.KeyPressMsg); ok {
-		switch keypress.String() {
-		case "q", "ctrl+c":
-			return e, tea.Quit
-		}
-	}
-
-	return e, nil
+	return e, tea.Quit
 }
 
 func (e ErrorPage) View() tea.View {
-	return tea.NewView("errorrrrr\n\n" + e.errorMsg)
+	str := fmt.Sprintf("There was an error.\n%s\n", errorStyle.Render(e.errorMsg))
+	return tea.NewView(str)
 }

@@ -108,7 +108,7 @@ func (a Application) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.password = &password
 			a.routes[ProcessRoute], err = shared.NewProcessModel(a.ctx, a.conf, password)
 			if err != nil {
-				a.routes[ErrorRoute] = NewErrorPage(fmt.Errorf("unknown route: %d", msg.Route))
+				a.routes[ErrorRoute] = NewErrorPage(fmt.Errorf("%w", err))
 				a.route = ErrorRoute
 				return a, nil
 			}
