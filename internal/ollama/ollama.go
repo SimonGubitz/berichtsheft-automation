@@ -191,7 +191,7 @@ func (o Ollama) ListModels(ctx context.Context) ([]Model, error) {
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&tagResp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tag response. %w", err)
+		return nil, fmt.Errorf("failed to unmarshal tag response. Response: , %w", err)
 	}
 
 	return tagResp.Models, nil

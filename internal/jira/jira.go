@@ -15,6 +15,7 @@ import (
 
 	"berichtsheft/internal/cache"
 	"berichtsheft/internal/networking"
+	"berichtsheft/internal/percentage"
 
 	"github.com/snabb/isoweek"
 )
@@ -75,7 +76,7 @@ func validateURL(s string) error {
 	return nil
 }
 
-func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*ActivityFeed, error) {
+func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*ActivityFeed, bool, error) {
 
 	header := make(http.Header)
 
@@ -85,25 +86,25 @@ func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*Activi
 
 	reqUrl, err := url.JoinPath(j.baseURL, "/activity")
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
+		return nil, false, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
 	}
 
 	reqUrl += "?" + queryParams.Encode()
-	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
-		return nil, fmt.Errorf("failed to request activity feed. %w", err)
+		return nil, false, fmt.Errorf("failed to request activity feed. ULR: %s. %w", reqUrl, err)
 	}
 
 	var res ActivityFeed
 	decoder := xml.NewDecoder(r)
 	err = decoder.Decode(&res)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal activity feed. %w", err)
+		return nil, cached, fmt.Errorf("failed to unmarshal activity feed. ULR: %s. %w", reqUrl, err)
 	}
 
 	slog.Debug("fetched activities", "activities", res)
 
-	return &res, nil
+	return &res, cached, nil
 }
 
 type WeekSummary struct {
@@ -113,7 +114,9 @@ type WeekSummary struct {
 	Issues    []Issue
 }
 
-func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFeed) ([]WeekSummary, error) {
+func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFeed) (w []WeekSummary, cachePercentage int, err error) {
+
+	p := percentage.NewBoolPercentage()
 
 	// key is athe iso week
 	weekSummaries := make(map[int]WeekSummary)
@@ -126,10 +129,11 @@ func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFe
 			continue
 		}
 
-		issue, err := j.GetIssue(ctx, issueKey)
+		issue, cached, err := j.GetIssue(ctx, issueKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch issue. %w", err)
+			return nil, 0, fmt.Errorf("failed to fetch issue. %w", err)
 		}
+		p.Inc(cached)
 
 		var weekSummary WeekSummary
 		y, w := issue.Fields.Updated.ISOWeek()
@@ -158,7 +162,8 @@ func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFe
 		res[i] = v
 		i++
 	}
-	return res, nil
+
+	return res, p.Calculate(), nil
 }
 
 func (j *JiraClient) SearchIssues(ctx context.Context, jql string) ([]Issue, error) {
@@ -174,7 +179,7 @@ func (j *JiraClient) SearchIssues(ctx context.Context, jql string) ([]Issue, err
 	}
 
 	reqUrl += "?" + queryParams.Encode()
-	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	r, _, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request search. %w", err)
 	}
@@ -189,25 +194,25 @@ func (j *JiraClient) SearchIssues(ctx context.Context, jql string) ([]Issue, err
 	return nil, nil
 }
 
-func (j *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, error) {
+func (j *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, bool, error) {
 
 	header := make(http.Header)
 	reqUrl, err := url.JoinPath(j.baseURL, fmt.Sprintf("/rest/api/2/issue/%s", key))
 	if err != nil {
-		return nil, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
+		return nil, false, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
 	}
 
-	r, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
-		return nil, fmt.Errorf("failed to do request to jira issue endpoint. %w", err)
+		return nil, cached, fmt.Errorf("failed to do request to jira issue endpoint. %w", err)
 	}
 
 	var issue Issue
 	decoder := json.NewDecoder(r)
 	err = decoder.Decode(&issue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode issue. %w", err)
+		return nil, cached, fmt.Errorf("failed to decode issue. %w", err)
 	}
 
-	return &issue, nil
+	return &issue, cached, nil
 }

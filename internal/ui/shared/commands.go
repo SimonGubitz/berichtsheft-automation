@@ -15,29 +15,55 @@ import (
 
 type ErrMsg error
 
-type InputMsg struct {
-	Input string
+type JiraActivityMsg struct {
+	Activities *jira.ActivityFeed
+	Cached     int
 }
-type RespMsg struct {
+type JiraWeeksMsg struct {
+	Input  string
+	Cached int
+}
+type OllamaRespMsg struct {
 	Response string
 }
 
 type State string
 
 const (
-	StateLoadingJira = "jira"
-	StateLoadingLLM  = "ollama"
-	StateFinished    = "finished"
+	StateLoadingJiraAct  = "jiraact"
+	StateLoadingJiraWeek = "jiraweek"
+	StateLoadingLLM      = "ollama"
+	StateFinished        = "finished"
 )
 
-func GetJiraInputCmd(ctx context.Context, jiraUrl, username, password string) tea.Cmd {
+func GetJiraActivityCmd(ctx context.Context, j *jira.JiraClient) tea.Cmd {
 	return func() tea.Msg {
-		input, err := getJiraInput(ctx, jiraUrl, username, password)
+		activities, cached, err := getJiraInput(ctx, j)
 		if err != nil {
 			return ErrMsg(err)
 		}
 
-		return InputMsg{Input: input}
+		cachePerc := 0
+		if cached {
+			cachePerc = 100
+		}
+		return JiraActivityMsg{Activities: activities, Cached: cachePerc}
+	}
+}
+
+func getJiraInput(ctx context.Context, j *jira.JiraClient) (*jira.ActivityFeed, bool, error) {
+	return j.GetActivities(ctx, 150)
+}
+
+func GetJiraWeekCmd(ctx context.Context, j *jira.JiraClient, activities *jira.ActivityFeed) tea.Cmd {
+	return func() tea.Msg {
+
+		input, cachePerc, err := constructJiraWeeks(ctx, j, activities)
+		if err != nil {
+			return ErrMsg(err)
+		}
+
+		return JiraWeeksMsg{Input: input, Cached: cachePerc}
 	}
 }
 
@@ -48,20 +74,11 @@ type LLMWeek struct {
 	Tasks     []string  `json:"tasks"`
 }
 
-func getJiraInput(ctx context.Context, jiraUrl, username, password string) (string, error) {
-	j, err := jira.NewJiraClient(jiraUrl, username, password)
-	if err != nil {
-		return "", fmt.Errorf("failed to instantiate new jira client. %w", err)
-	}
+func constructJiraWeeks(ctx context.Context, j *jira.JiraClient, activities *jira.ActivityFeed) (llmInput string, cachePercentage int, err error) {
 
-	activities, err := j.GetActivities(ctx, 150)
+	weeks, cached, err := j.ConstructWeeks(ctx, *activities)
 	if err != nil {
-		return "", fmt.Errorf("failed to get activities. %w", err)
-	}
-
-	weeks, err := j.ConstructWeeks(ctx, *activities)
-	if err != nil {
-		return "", fmt.Errorf("failed to construct weeks. %w", err)
+		return "", cached, fmt.Errorf("failed to construct weeks. %w", err)
 	}
 
 	llmWeeks := make([]LLMWeek, 0, len(weeks))
@@ -98,9 +115,9 @@ func getJiraInput(ctx context.Context, jiraUrl, username, password string) (stri
 
 	inputBytes, err := json.MarshalIndent(llmWeeks, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal model data. %w", err)
+		return "", cached, fmt.Errorf("failed to marshal model data. %w", err)
 	}
-	return string(inputBytes), nil
+	return string(inputBytes), cached, nil
 }
 
 func GetLLMSummaryCmd(ctx context.Context, ollama_host, input string) tea.Cmd {
@@ -110,7 +127,7 @@ func GetLLMSummaryCmd(ctx context.Context, ollama_host, input string) tea.Cmd {
 			return ErrMsg(err)
 		}
 
-		return RespMsg{Response: resp}
+		return OllamaRespMsg{Response: resp}
 	}
 }
 

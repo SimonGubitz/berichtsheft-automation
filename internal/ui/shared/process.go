@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"berichtsheft/internal/config"
+	"berichtsheft/internal/jira"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -16,20 +18,22 @@ import (
 var (
 	textStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("201"))
 	successStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	responseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#b8b8b8"))
+	responseStyle = lipgloss.NewStyle() //.Foreground(lipgloss.Color("#999999"))
 )
 
 type HashSet map[string]struct{}
 
 type model struct {
-	ctx        context.Context
-	ollamaHost string
-	jiraHost   string
-	username   string
-	password   string
+	ctx context.Context
 
-	response string
-	state    State
+	ollamaHost string
+	jiraClient *jira.JiraClient
+	activities *jira.ActivityFeed
+
+	response       string
+	state          State
+	jiraActCached  int
+	jiraWeekCached int
 
 	spinner  spinner.Model
 	quitting bool
@@ -43,19 +47,22 @@ func NewProcessModel(ctx context.Context, conf *config.Config, password string) 
 		return model{}, errors.New("environment variable `OLLAMA_HOST` not set")
 	}
 
+	j, err := jira.NewJiraClient(conf.JiraHost, conf.Username, password)
+	if err != nil {
+		return model{}, fmt.Errorf("failed to create jira client. %w", err)
+	}
+
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	return model{
 		ctx:        ctx,
 		ollamaHost: ollamaHost,
-		jiraHost:   conf.JiraHost,
-		username:   conf.Username,
-		password:   password,
+		jiraClient: j,
 
 		spinner: s,
 
-		state: StateLoadingJira,
+		state: StateLoadingJiraAct,
 	}, nil
 }
 
@@ -107,7 +114,7 @@ func (m headlessProcessModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ErrMsg:
 		m.err = msg
 		return m, tea.Quit
-	case RespMsg:
+	case OllamaRespMsg:
 		m.response = msg.Response
 		return m, tea.Quit
 	default:
@@ -124,7 +131,7 @@ func (m headlessProcessModel) View() tea.View {
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		GetJiraInputCmd(m.ctx, m.jiraHost, m.username, m.password),
+		GetJiraActivityCmd(m.ctx, m.jiraClient),
 	)
 }
 
@@ -143,14 +150,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 		return m, nil
 
-	case InputMsg:
+	case JiraActivityMsg:
+		m.state = StateLoadingJiraWeek
+		m.activities = msg.Activities
+		m.jiraActCached = msg.Cached
+		return m, tea.Batch(
+			m.spinner.Tick,
+			GetJiraWeekCmd(m.ctx, m.jiraClient, m.activities),
+		)
+
+	case JiraWeeksMsg:
 		m.state = StateLoadingLLM
+		m.jiraWeekCached = msg.Cached
 		return m, tea.Batch(
 			m.spinner.Tick,
 			GetLLMSummaryCmd(m.ctx, m.ollamaHost, msg.Input),
 		)
 
-	case RespMsg:
+	case OllamaRespMsg:
 		m.state = StateFinished
 		m.response = msg.Response
 		return m, tea.Quit
@@ -170,17 +187,37 @@ func (m model) View() tea.View {
 		return tea.NewView("\n\n   Quitting...\n")
 	}
 
-	var str string
+	var b strings.Builder
+	b.WriteString("\n\n")
+
+	check := "✅"
+
 	switch m.state {
-	case StateLoadingJira:
-		str = fmt.Sprintf("\n\n   %s %spress q to quit\n\n", m.spinner.View(), textStyle.Render("Fetching your Activity..."))
-	case StateLoadingLLM:
-		str = fmt.Sprintf("\n\n   %s %spress q to quit\n\n", m.spinner.View(), textStyle.Render("Thinking..."))
-	case StateFinished:
-		str = fmt.Sprintf("\n\n   %s %s\n%s\n\n", "✅", successStyle.Render("Finished"), responseStyle.Render(m.response))
+	case StateLoadingJiraAct:
+		fmt.Fprintf(&b, "   %s %s\n", m.spinner.View(), textStyle.Render("Fetching your Activity..."))
 	default:
-		str = fmt.Sprintf("\n\n   %s %spress q to quit\n\n", textStyle.Render("Loading forever..."), m.spinner.View())
+		fmt.Fprintf(&b, "   %s %s %s\n", check, successStyle.Render("Fetched your Activity"), responseStyle.Render(fmt.Sprintf("(%d%% cached)", m.jiraActCached)))
 	}
 
-	return tea.NewView(str)
+	switch m.state {
+	case StateLoadingJiraWeek:
+		fmt.Fprintf(&b, "   %s %s\n", m.spinner.View(), textStyle.Render("Building your weeks..."))
+	case StateLoadingLLM, StateFinished:
+		fmt.Fprintf(&b, "   %s %s %s\n", check, successStyle.Render("Built your weeks"), responseStyle.Render(fmt.Sprintf("(%d%% cached)", m.jiraWeekCached)))
+	}
+
+	switch m.state {
+	case StateLoadingLLM:
+		fmt.Fprintf(&b, "   %s %s\n", m.spinner.View(), textStyle.Render("Thinking..."))
+	case StateFinished:
+		fmt.Fprintf(&b, "   %s %s\n", check, successStyle.Render("Finished"))
+	}
+
+	if m.state == StateFinished {
+		fmt.Fprintf(&b, "\n%s\n\n", responseStyle.Render(m.response))
+	} else {
+		b.WriteString("\n   press q to quit\n\n")
+	}
+
+	return tea.NewView(b.String())
 }
