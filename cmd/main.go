@@ -24,9 +24,9 @@ var (
 
 func main() {
 
-	var version bool
-	flag.BoolVar(&version, "v", false, "")
-	flag.BoolVar(&version, "version", false, "Prints the version and exits")
+	var showVersion bool
+	flag.BoolVar(&showVersion, "v", false, "Print the version and exit.")
+	flag.BoolVar(&showVersion, "version", false, "Print the version and exit.")
 
 	// no config
 	cli := flag.Bool("cli", false, "Run using the saved configuration without interactive input.")
@@ -45,7 +45,7 @@ func main() {
 	ctx := context.Background()
 
 	switch {
-	case version:
+	case showVersion:
 		printVersion()
 	case *headless:
 		runHeadless(ctx, *useFileConfig, *useEnvConfig, *configUsername, *configJiraHost, *output)
