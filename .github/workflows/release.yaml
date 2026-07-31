@@ -1,0 +1,110 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: setup linter
+        uses: golangci/golangci-lint-action@v9.2.0
+        with:
+          version: latest
+          install-mode: binary
+          install-only: true
+
+      - name: check formatting
+        run: make check-format
+
+      - name: lint
+        run: make lint
+
+      - name: test
+        run: go test ./...
+
+      - name: vet
+        run: go vet ./...
+
+  build:
+    name: build (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: build archive
+        env:
+          VERSION: ${{ github.ref_name }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist/package
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/package/berichtsheft ./cmd
+          tar -C dist/package -czf "dist/berichtsheft_${VERSION}_${GOOS}_${GOARCH}.tar.gz" berichtsheft
+
+      - name: upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: berichtsheft_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: download archives
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: create checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz > checksums.txt
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then
+            prerelease+=(--prerelease)
+          fi
+          gh release create "$VERSION" dist/* --title "Berichtsheft $VERSION" --generate-notes "${prerelease[@]}"
