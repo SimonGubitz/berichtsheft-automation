@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -10,30 +10,37 @@ import (
 	"berichtsheft/internal/ui/shared"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
-func main() {
+var (
+	cliCmd = &cobra.Command{
+		Use: "cli",
+	}
+)
 
-	ctx := context.Background()
+func init() {
 
-	var confClient config.EnvConfig
+}
+
+func runCLI(ctx context.Context) {
+
+	var confClient config.FileConfig
 	conf, err := confClient.GetConfig()
 	if err != nil {
 		fmt.Println(ConsoleRed(fmt.Sprintf("failed to get config. %+v", err)))
-		return
+		os.Exit(1)
 	}
 
 	password, err := keychain.GetPassword(conf.Username)
 	if err != nil {
 		fmt.Println(ConsoleRed(fmt.Sprintf("failed to get password from the os keychain. %+v", err)))
-		return
+		os.Exit(1)
 	}
 
 	m, err := shared.NewProcessModel(ctx, conf, password)
 	if err != nil {
 		fmt.Println(ConsoleRed(fmt.Sprintf("failed to initialize process model. %+v", err)))
-		return
+		os.Exit(1)
 	}
 
 	p := tea.NewProgram(m)
@@ -41,9 +48,4 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func ConsoleRed(str string) string {
-	style := lipgloss.NewStyle().Foreground(lipgloss.Red)
-	return style.Render(str)
 }

@@ -20,6 +20,12 @@ import (
 	"github.com/snabb/isoweek"
 )
 
+type ResultAmount int
+
+const (
+	NoResultLimit = -1
+)
+
 type JiraClient struct {
 	username   string
 	password   string
@@ -76,13 +82,16 @@ func validateURL(s string) error {
 	return nil
 }
 
-func (j *JiraClient) GetActivities(ctx context.Context, maxResults int) (*ActivityFeed, bool, error) {
+func (j *JiraClient) GetActivities(ctx context.Context, from, to time.Time, maxResults ResultAmount) (*ActivityFeed, bool, error) {
 
 	header := make(http.Header)
 
 	queryParams := make(url.Values)
-	queryParams.Add("maxResults", strconv.Itoa(maxResults))
+	if maxResults != NoResultLimit {
+		queryParams.Add("maxResults", strconv.Itoa(int(maxResults)))
+	}
 	queryParams.Add("streams", "user IS "+j.username)
+	queryParams.Add("streams", fmt.Sprintf("update-date BETWEEN %d %d", from.UnixMilli(), to.UnixMilli()))
 
 	reqUrl, err := url.JoinPath(j.baseURL, "/activity")
 	if err != nil {
@@ -123,7 +132,7 @@ func (j *JiraClient) ConstructWeeks(ctx context.Context, activityFeed ActivityFe
 
 	for _, entry := range activityFeed.Entries {
 
-		regex := regexp.MustCompile(`^[a-zA-Z]+-\d{1,3}`)
+		regex := regexp.MustCompile(`^[a-zA-Z]+-\d{1,3}$`)
 		issueKey := regex.FindString(entry.Activity.Title)
 		if issueKey == "" {
 			continue
