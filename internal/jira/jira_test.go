@@ -63,7 +63,7 @@ func TestJiraUnit(t *testing.T) {
 		t.Fatalf("failed to instantiate new jira client. %+v", err)
 	}
 
-	activities, _, err := j.GetActivities(ctx, 1)
+	activities, _, err := j.GetActivities(ctx, time.Now(), time.Now(), 1)
 	if err != nil {
 		t.Fatalf("failed to get activities. %+v", err)
 	}

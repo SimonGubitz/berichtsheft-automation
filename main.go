@@ -1,6 +1,10 @@
 package main
 
-import "context"
+import (
+	"context"
+
+	"berichtsheft/cmd"
+)
 
 var (
 	version = "development"
@@ -10,6 +14,6 @@ func main() {
 
 	ctx := context.Background()
 
-	Execute(ctx, version)
+	cmd.Execute(ctx, version)
 
 }

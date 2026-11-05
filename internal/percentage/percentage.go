@@ -20,5 +20,10 @@ func (p *BoolPercentage) AddN(n int, b bool) {
 }
 
 func (p *BoolPercentage) Calculate() int {
+
+	if len(p.n) == 0 {
+		return 0
+	}
+
 	return (p.n[true] / (p.n[true] + p.n[false])) * 100
 }

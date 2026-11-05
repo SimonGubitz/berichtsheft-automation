@@ -7,6 +7,7 @@ import (
 
 	"berichtsheft/internal/config"
 	"berichtsheft/internal/keychain"
+	"berichtsheft/internal/ui"
 
 	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/textinput"
@@ -128,14 +129,14 @@ func (c ConfigPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				c.conf.Username = c.inputs[usernameIndex].Value()
 				c.conf.JiraHost = c.inputs[urlIndex].Value()
 				if err := c.confClient.SetConfig(*c.conf); err != nil {
-					return c, ThrowError(err)
+					return c, ThrowErrorMsg(err)
 				}
 
 				if err := keychain.SetPassword(c.conf.Username, password); err != nil {
-					return c, ThrowError(err)
+					return c, ThrowErrorMsg(err)
 				}
 
-				return c, NavigateTo(HomeRoute)
+				return c, ui.NavigateToMsg(ui.HomeRoute)
 			}
 
 			// Cycle indexes

@@ -36,9 +36,9 @@ const (
 	StateFinished        = "finished"
 )
 
-func GetJiraActivityCmd(ctx context.Context, j *jira.JiraClient) tea.Cmd {
+func GetJiraActivityCmd(ctx context.Context, j *jira.JiraClient, from, to time.Time) tea.Cmd {
 	return func() tea.Msg {
-		activities, cached, err := getJiraInput(ctx, j)
+		activities, cached, err := getJiraInput(ctx, j, from, to)
 		if err != nil {
 			return ErrMsg(err)
 		}
@@ -51,8 +51,8 @@ func GetJiraActivityCmd(ctx context.Context, j *jira.JiraClient) tea.Cmd {
 	}
 }
 
-func getJiraInput(ctx context.Context, j *jira.JiraClient) (*jira.ActivityFeed, bool, error) {
-	return j.GetActivities(ctx, 150)
+func getJiraInput(ctx context.Context, j *jira.JiraClient, from, to time.Time) (*jira.ActivityFeed, bool, error) {
+	return j.GetActivities(ctx, from, to, jira.NoResultLimit)
 }
 
 func GetJiraWeekCmd(ctx context.Context, j *jira.JiraClient, activities *jira.ActivityFeed) tea.Cmd {

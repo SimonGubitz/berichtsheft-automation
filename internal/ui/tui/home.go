@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"berichtsheft/internal/config"
+	"berichtsheft/internal/ui"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -129,9 +130,10 @@ func (m HomePage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok {
 				switch string(i) {
 				case "Start":
-					return m, NavigateTo(ProcessRoute)
+					return m, ui.NavigateToMsg(ui.DateInputRoute)
+
 				case "Edit configuration":
-					return m, NavigateTo(ConfigRoute)
+					return m, ui.NavigateToMsg(ui.ConfigRoute)
 				default:
 					return m, nil
 				}

@@ -2,13 +2,13 @@ package shared
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"strings"
+	"time"
 
 	"berichtsheft/internal/config"
 	"berichtsheft/internal/jira"
+	"berichtsheft/internal/ui"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -30,6 +30,9 @@ type model struct {
 	jiraClient *jira.JiraClient
 	activities *jira.ActivityFeed
 
+	from time.Time
+	to   time.Time
+
 	response       string
 	state          State
 	jiraActCached  int
@@ -40,12 +43,7 @@ type model struct {
 	err      error
 }
 
-func NewProcessModel(ctx context.Context, conf *config.Config, password string) (model, error) {
-
-	ollamaHost := os.Getenv("OLLAMA_HOST")
-	if ollamaHost == "" {
-		return model{}, errors.New("environment variable `OLLAMA_HOST` not set")
-	}
+func NewProcessModel(ctx context.Context, conf *config.Config, from, to time.Time, ollamaHost, password string) (model, error) {
 
 	j, err := jira.NewJiraClient(conf.JiraHost, conf.Username, password)
 	if err != nil {
@@ -60,6 +58,9 @@ func NewProcessModel(ctx context.Context, conf *config.Config, password string) 
 		ollamaHost: ollamaHost,
 		jiraClient: j,
 
+		from: from,
+		to:   to,
+
 		spinner: s,
 
 		state: StateLoadingJiraAct,
@@ -68,8 +69,8 @@ func NewProcessModel(ctx context.Context, conf *config.Config, password string) 
 
 // RunProcess executes the same process model without rendering a terminal UI.
 // It returns the generated report once the model receives a response.
-func RunProcess(ctx context.Context, conf *config.Config, password string) (string, error) {
-	m, err := NewProcessModel(ctx, conf, password)
+func RunProcess(ctx context.Context, conf *config.Config, from, to time.Time, ollamaHost, password string) (string, error) {
+	m, err := NewProcessModel(ctx, conf, from, to, ollamaHost, password)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +114,8 @@ func (m headlessProcessModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ErrMsg:
 		m.err = msg
-		return m, tea.Quit
+		return m, ui.NavigateToMsg(ui.ErrorRoute)
+
 	case OllamaRespMsg:
 		m.response = msg.Response
 		return m, tea.Quit
@@ -131,7 +133,7 @@ func (m headlessProcessModel) View() tea.View {
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		GetJiraActivityCmd(m.ctx, m.jiraClient),
+		GetJiraActivityCmd(m.ctx, m.jiraClient, m.from, m.to),
 	)
 }
 
@@ -148,7 +150,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ErrMsg:
 		m.err = msg
-		return m, nil
+		return m, ui.NavigateToMsg(ui.ErrorRoute)
 
 	case JiraActivityMsg:
 		m.state = StateLoadingJiraWeek
@@ -180,6 +182,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() tea.View {
+
 	if m.err != nil {
 		return tea.NewView(m.err.Error())
 	}

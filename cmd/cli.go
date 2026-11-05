@@ -3,49 +3,79 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
+	"time"
 
 	"berichtsheft/internal/config"
-	"berichtsheft/internal/keychain"
+	// "berichtsheft/internal/keychain"
 	"berichtsheft/internal/ui/shared"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/spf13/cobra"
 )
 
 var (
 	cliCmd = &cobra.Command{
-		Use: "cli",
+		Use:   "cli",
+		Short: "Runs the preconfigured state without setup.",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return checkDateFlags(cmd)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			fromFlag, err := cmd.Flags().GetTime("from")
+			if err != nil {
+				return err
+			}
+
+			toFlag, err := cmd.Flags().GetTime("to")
+			if err != nil {
+				return err
+			}
+
+			ollamaFlag, err := cmd.Flags().GetString("ollama")
+			if err != nil {
+				return err
+			}
+
+			return runCli(cmd.Context(), fromFlag, toFlag, ollamaFlag)
+		},
 	}
 )
 
 func init() {
 
+	formats := []string{time.DateOnly, "02.01.2006", "01/02/2006"}
+	cliCmd.Flags().TimeP("from", "f", time.Time{}, formats, "Starting date for the activities.")
+	cliCmd.Flags().TimeP("to", "t", time.Time{}, formats, "End date for the activities.")
+	_ = cliCmd.MarkFlagRequired("from")
+	_ = cliCmd.MarkFlagRequired("to")
+
+	cliCmd.Flags().StringP("ollama", "", "http://localhost:11434", "Base URL of the Ollama instance.")
+
+	rootCmd.AddCommand(cliCmd)
 }
 
-func runCLI(ctx context.Context) {
+func runCli(ctx context.Context, from, to time.Time, ollamaHost string) error {
 
 	var confClient config.FileConfig
 	conf, err := confClient.GetConfig()
 	if err != nil {
-		fmt.Println(ConsoleRed(fmt.Sprintf("failed to get config. %+v", err)))
-		os.Exit(1)
+		return fmt.Errorf("failed to get config. %w", err)
 	}
 
-	password, err := keychain.GetPassword(conf.Username)
-	if err != nil {
-		fmt.Println(ConsoleRed(fmt.Sprintf("failed to get password from the os keychain. %+v", err)))
-		os.Exit(1)
-	}
+	// TODO: revert
+	// password, err := keychain.GetPassword(conf.Username)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get password from the os keychain. %w", err)
+	// }
+	password := ""
 
-	m, err := shared.NewProcessModel(ctx, conf, password)
+	m, err := shared.NewProcessModel(ctx, conf, from, to, ollamaHost, password)
 	if err != nil {
-		fmt.Println(ConsoleRed(fmt.Sprintf("failed to initialize process model. %+v", err)))
-		os.Exit(1)
+		return fmt.Errorf("failed to initialize process model. %w", err)
 	}
 
 	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	_, err = p.Run()
+	return err
 }

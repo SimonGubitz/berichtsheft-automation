@@ -1,24 +1,7 @@
-SRC := ./cmd/$(PROJECT)/main.go
-
-define HELP_BODY
-berichtsheft
-endef
-export HELP_BODY
-
-help:
-	@echo "$$HELP_BODY"
-
-
-run:
-	set -a; . ./.env.local; set +a; time go run $(SRC)
 
 build:
 	mkdir -p bin
-	go build -o ./bin/main-$(PROJECT) $(SRC)
-
-debug:
-	mkdir -p bin
-	set -a; . ./.env.local; set +a; dlv debug $(SRC) --output ./bin/$(PROJECT)
+	go build -o ./bin/berichtsheft src/main.go
 
 check-format:
 	test -z "$$(gofmt -l .)"

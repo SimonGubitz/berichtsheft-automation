@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -30,6 +31,13 @@ func (e ErrorPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (e ErrorPage) View() tea.View {
-	str := fmt.Sprintf("There was an error.\n%s\n", errorStyle.Render(e.errorMsg))
-	return tea.NewView(str)
+	lPad := strings.Repeat(" ", 5)
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "\n\n")
+	fmt.Fprintf(&sb, "%s %s\n", lPad, errorStyle.Render("Unfortunately there has been an error."))
+	fmt.Fprintf(&sb, "%s %s\n", lPad, e.errorMsg)
+	fmt.Fprintf(&sb, "\n\n")
+
+	return tea.NewView(sb.String())
 }

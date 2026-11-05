@@ -101,14 +101,14 @@ func (j *JiraClient) GetActivities(ctx context.Context, from, to time.Time, maxR
 	reqUrl += "?" + queryParams.Encode()
 	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to request activity feed. ULR: %s. %w", reqUrl, err)
+		return nil, false, fmt.Errorf("failed to request activity feed. URL: %s. %w", reqUrl, err)
 	}
 
 	var res ActivityFeed
 	decoder := xml.NewDecoder(r)
 	err = decoder.Decode(&res)
 	if err != nil {
-		return nil, cached, fmt.Errorf("failed to unmarshal activity feed. ULR: %s. %w", reqUrl, err)
+		return nil, cached, fmt.Errorf("failed to unmarshal activity feed. URL: %s. %w", reqUrl, err)
 	}
 
 	slog.Debug("fetched activities", "activities", res)
