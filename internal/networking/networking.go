@@ -12,13 +12,17 @@ import (
 	"berichtsheft/internal/cache"
 )
 
+var (
+	ErrUnexpectedStatusCode = errors.New("unexpected status code")
+)
+
 func DefaultHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 10 * time.Second,
 	}
 }
 
-func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, body io.Reader, apiCache *cache.FileCache, url, username, password string) (io.Reader, bool, error) {
+func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Client, header http.Header, apiCache *cache.FileCache, url, username, password string) (io.Reader, bool, error) {
 
 	l := slog.Default().With("layer", "networking")
 
@@ -35,7 +39,7 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 		// r, err = readCacheL3(fileName)
 		r, err := apiCache.GetReader(url)
 		if err != nil {
-			return nil, false, fmt.Errorf("HTTPRequestWithCache: Error reading from cache: %w", err)
+			return nil, false, err
 		}
 		return r, true, nil
 
@@ -43,9 +47,9 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 
 		l.Debug("cache miss", "url", url)
 
-		rc, err := doRequestWithBasicAuth(ctx, l, httpClient, header, body, url, username, password)
+		rc, err := doRequestWithBasicAuth(ctx, l, httpClient, header, url, username, password)
 		if err != nil {
-			return nil, false, fmt.Errorf("HTTPRequestWithCache: Error with request: %w", err)
+			return nil, false, err
 		}
 		defer func() {
 			if err := rc.Close(); err != nil {
@@ -65,9 +69,16 @@ func HTTPRequestWithCacheAndBasicAuth(ctx context.Context, httpClient *http.Clie
 	}
 }
 
-func doRequestWithBasicAuth(ctx context.Context, l *slog.Logger, httpClient *http.Client, header http.Header, body io.Reader, url, username, password string) (io.ReadCloser, error) {
+func doRequestWithBasicAuth(ctx context.Context, l *slog.Logger, httpClient *http.Client, header http.Header, url, username, password string) (io.ReadCloser, error) {
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, body)
+	if username == "" {
+		return nil, errors.New("empty username is not allowed")
+	}
+	if password == "" {
+		return nil, errors.New("empty password is not allowed")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		l.Warn("failed to create request", "url", url)
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -88,9 +99,9 @@ func doRequestWithBasicAuth(ctx context.Context, l *slog.Logger, httpClient *htt
 			}
 		}()
 
-		l.Warn("unexpected status code", "status code", resp.StatusCode, "url", url)
-
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		//
+		l.Warn("unexpected status code", "url", url, "status code", resp.StatusCode, "headers", resp.Header)
+		return nil, ErrUnexpectedStatusCode
 	}
 
 	l.Debug("successful request")

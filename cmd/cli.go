@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"berichtsheft/internal/config"
-	// "berichtsheft/internal/keychain"
+	"berichtsheft/internal/keychain"
 	"berichtsheft/internal/ui/shared"
 
 	tea "charm.land/bubbletea/v2"
@@ -63,12 +63,10 @@ func runCli(ctx context.Context, from, to time.Time, ollamaHost string) error {
 		return fmt.Errorf("failed to get config. %w", err)
 	}
 
-	// TODO: revert
-	// password, err := keychain.GetPassword(conf.Username)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get password from the os keychain. %w", err)
-	// }
-	password := ""
+	password, err := keychain.GetPassword(conf.Username)
+	if err != nil {
+		return fmt.Errorf("failed to get password from the os keychain. %w", err)
+	}
 
 	m, err := shared.NewProcessModel(ctx, conf, from, to, ollamaHost, password)
 	if err != nil {

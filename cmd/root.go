@@ -3,15 +3,43 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
+	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/adrg/xdg"
 	"github.com/spf13/cobra"
 )
 
 var (
+	log     *slog.Logger
+	logFile *os.File
 	rootCmd = &cobra.Command{
 		Use: "berichtsheft",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+
+			// setup logger
+			timeStr := time.Now().Format(time.RFC3339)
+			logFilePath, err := xdg.CacheFile(filepath.Join("berichtsheft", "logs", timeStr+".log"))
+			if err != nil {
+				return err
+			}
+
+			logFile, err = os.OpenFile(logFilePath, os.O_CREATE|os.O_RDWR, 0o600)
+			if err != nil {
+				return err
+			}
+			defer func() {}()
+
+			h := slog.NewJSONHandler(logFile, &slog.HandlerOptions{Level: slog.LevelDebug})
+			log = slog.New(h)
+
+			slog.SetDefault(log)
+
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			ollamaFlag, err := cmd.Flags().GetString("ollama")
@@ -20,6 +48,9 @@ var (
 			}
 
 			return runTui(cmd.Context(), ollamaFlag)
+		},
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			return logFile.Close()
 		},
 	}
 )

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/adrg/xdg"
 )
@@ -16,7 +17,7 @@ func NewFileConfig() *FileConfig {
 }
 
 func (fc *FileConfig) GetConfig() (*Config, error) {
-	configFilePath, err := xdg.ConfigFile("berichtsheft/config.json")
+	configFilePath, err := xdg.ConfigFile(filepath.Join("berichtsheft", "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config file path. %w", err)
 	}
@@ -41,7 +42,7 @@ func (fc *FileConfig) GetConfig() (*Config, error) {
 }
 
 func (fc *FileConfig) SetConfig(config Config) error {
-	configFilePath, err := xdg.ConfigFile("berichtsheft/config.json")
+	configFilePath, err := xdg.ConfigFile(filepath.Join("berichtsheft", "config.json"))
 	if err != nil {
 		return fmt.Errorf("failed to get config file path. %w", err)
 	}

@@ -95,20 +95,20 @@ func (j *JiraClient) GetActivities(ctx context.Context, from, to time.Time, maxR
 
 	reqUrl, err := url.JoinPath(j.baseURL, "/activity")
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
+		return nil, false, fmt.Errorf("failed to construct request url. %w", err)
 	}
 
 	reqUrl += "?" + queryParams.Encode()
-	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to request activity feed. URL: %s. %w", reqUrl, err)
+		return nil, false, fmt.Errorf("failed to request activity feed. %w", err)
 	}
 
 	var res ActivityFeed
 	decoder := xml.NewDecoder(r)
 	err = decoder.Decode(&res)
 	if err != nil {
-		return nil, cached, fmt.Errorf("failed to unmarshal activity feed. URL: %s. %w", reqUrl, err)
+		return nil, cached, fmt.Errorf("failed to unmarshal activity feed. URL: %w", err)
 	}
 
 	slog.Debug("fetched activities", "activities", res)
@@ -188,7 +188,7 @@ func (j *JiraClient) SearchIssues(ctx context.Context, jql string) ([]Issue, err
 	}
 
 	reqUrl += "?" + queryParams.Encode()
-	r, _, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	r, _, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request search. %w", err)
 	}
@@ -211,7 +211,7 @@ func (j *JiraClient) GetIssue(ctx context.Context, key string) (*Issue, bool, er
 		return nil, false, fmt.Errorf("failed to construct request url. baseURL: %s, %w", j.baseURL, err)
 	}
 
-	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, nil, j.reqCache, reqUrl, j.username, j.password)
+	r, cached, err := networking.HTTPRequestWithCacheAndBasicAuth(ctx, j.httpClient, header, j.reqCache, reqUrl, j.username, j.password)
 	if err != nil {
 		return nil, cached, fmt.Errorf("failed to do request to jira issue endpoint. %w", err)
 	}

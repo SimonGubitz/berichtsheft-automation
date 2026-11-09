@@ -18,7 +18,7 @@ type DateInputMsg struct {
 	To   time.Time
 }
 
-func SendTimeMsg(from, to time.Time) tea.Cmd {
+func DateMsg(from, to time.Time) tea.Cmd {
 	return func() tea.Msg {
 		return DateInputMsg{From: from, To: to}
 	}
@@ -90,8 +90,24 @@ func (a Application) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 
+	case DateInputMsg:
+
+		if msg.From.After(msg.To) {
+			return a, ThrowErrorMsg(fmt.Errorf("from may not be greater than to"))
+		}
+
+		a.from = msg.From
+		a.to = msg.To
+
 	case ui.NavigateMsg:
+
+		fmt.Printf("received route: %#v\n", msg.Route)
+
 		switch msg.Route {
+		case ui.DateInputRoute:
+			a.route = msg.Route
+			return a, a.routes[a.route].Init()
+
 		case ui.ProcessRoute:
 			password, err := keychain.GetPassword(a.conf.Username)
 			if err != nil {
@@ -110,6 +126,7 @@ func (a Application) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			a.route = ui.ProcessRoute
 			return a, a.routes[ui.ProcessRoute].Init()
+
 		default:
 			if msg.Route < ui.HomeRoute || msg.Route > ui.ErrorRoute {
 				a.routes[ui.ErrorRoute] = NewErrorPage(fmt.Errorf("unknown route: %d", msg.Route))

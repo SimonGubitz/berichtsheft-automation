@@ -3,31 +3,28 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
+
+	"berichtsheft/internal/ui"
 
 	"charm.land/bubbles/v2/cursor"
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
-var (
-	cursorStyle = focusedStyle
-	noStyle     = lipgloss.NewStyle()
-)
-
 type DateInputPage struct {
-	focusIndex int
-	keymap     help.KeyMap
-	help       help.Model
-	inputs     []textinput.Model
-	cursorMode cursor.Mode
-	quitting   bool
+	focusIndex    int
+	inputHeadings []string
+	inputs        []textinput.Model
+	cursorMode    cursor.Mode
+	quitting      bool
 }
 
 func NewDateInputPage() DateInputPage {
 	m := DateInputPage{
-		inputs: make([]textinput.Model, 2),
+		inputs:        make([]textinput.Model, 2),
+		inputHeadings: make([]string, 2),
 	}
 
 	var t textinput.Model
@@ -46,9 +43,11 @@ func NewDateInputPage() DateInputPage {
 
 		switch i {
 		case 0:
+			m.inputHeadings[i] = "From"
 			t.Placeholder = "dd.mm.yyyy"
 			t.Focus()
 		case 1:
+			m.inputHeadings[i] = "To"
 			t.Placeholder = "dd.mm.yyyy"
 		}
 
@@ -63,6 +62,7 @@ func (m DateInputPage) Init() tea.Cmd {
 }
 
 func (m DateInputPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// @gocritic
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
@@ -77,7 +77,17 @@ func (m DateInputPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Did the user press enter while the submit button was focused?
 			// If so, exit.
 			if s == "enter" && m.focusIndex == len(m.inputs) {
-				return m, tea.Quit
+				from, err := time.Parse("02.01.2006", m.inputs[0].Value())
+				if err != nil {
+					return m, ThrowErrorMsg(err)
+				}
+
+				to, err := time.Parse("02.01.2006", m.inputs[1].Value())
+				if err != nil {
+					return m, ThrowErrorMsg(err)
+				}
+
+				return m, tea.Sequence(DateMsg(from, to), ui.NavigateToMsg(ui.ProcessRoute))
 			}
 
 			// Cycle indexes
@@ -131,9 +141,12 @@ func (m DateInputPage) View() tea.View {
 	var c *tea.Cursor
 
 	lPad := strings.Repeat(" ", 5)
-	fmt.Fprintf(&sb, "\n\n")
+	fmt.Fprintf(&sb, "\n\n%sEnter the timeframe you want to report.", lPad)
+
+	fmt.Fprintf(&sb, "\n")
 	for i, in := range m.inputs {
-		fmt.Fprintf(&sb, "%s%s", lPad, m.inputs[i].View())
+		fmt.Fprintf(&sb, "\n%s%s", lPad, m.inputHeadings[i])
+		fmt.Fprintf(&sb, "\n%s%s", lPad, m.inputs[i].View())
 		if i < len(m.inputs)-1 {
 			sb.WriteRune('\n')
 		}
@@ -150,8 +163,6 @@ func (m DateInputPage) View() tea.View {
 		button = &focusedButton
 	}
 	fmt.Fprintf(&sb, "\n\n%s%s\n\n", lPad, *button)
-
-	fmt.Fprintf(&sb, m.help.View(m.keymap), lPad)
 
 	if m.quitting {
 		sb.WriteRune('\n')
